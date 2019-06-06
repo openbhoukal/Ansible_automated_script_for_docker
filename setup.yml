@@ -1,0 +1,30 @@
+---
+- name: Setup Directory and create certificates
+  hosts: localhost
+  become: yes
+  vars:
+    base_directory: '/home/ubuntu'
+    config_directory: "{{base_directory}}/config"
+    certs_directory: "{{config_directory}}/certs"
+    repo_path: '/home/ubuntu/<repo_name>'
+  tasks:
+  - name: create directories and copy files
+    file:
+      path: "{{config_directory}}"
+      state: directory
+
+  - name: create certs in config directory
+    file:
+      path: "{{certs_directory}}"
+      state: directory
+
+  - name: Copy files
+    copy: src={{ item.src }} dest={{ item.dest }} mode={{item.mode}}
+    with_items:
+      - { src: '{{repo_path}}/mosquitto.conf', dest: '{{config_directory}}/mosquitto.conf', mode: '644' }
+      - { src: '{{repo_path}}/generate_CA.sh', dest: '{{certs_directory}}/generate_CA.sh', mode: '0744' }
+
+  - name: Run script to generate certificates
+    command: "{{certs_directory}}/generate_CA.sh localhost"
+    args:
+      chdir: "{{certs_directory}}"

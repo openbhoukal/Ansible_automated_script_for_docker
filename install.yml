@@ -1,0 +1,51 @@
+- name: Setup Docker and  containers
+  hosts: localhost
+  become: true
+  vars:
+    base_path: /home/ubuntu/config
+  tasks:
+  - name: Add Docker GPG key
+    apt_key: url=https://download.docker.com/linux/ubuntu/gpg
+
+  - name: Add Docker APT repository
+    apt_repository:
+      repo: 'deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable'
+      # repo: 'deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_lsb.codename }} stable'
+
+  - name: Install list of packages
+    apt: name={{ item }} state=latest
+    with_items:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - docker-ce
+
+  - name: install
+    pip:
+     name:
+      - docker
+      # - requests==2.5.3
+
+  - user: name={{ansible_user}} groups=docker
+  - name: reset ssh connection
+    meta: reset_connection
+
+  - name: Install mongo container
+    docker_container:
+      name: "MongoDB"
+      image: mongo:latest
+      ports:
+        - 27018:27018
+      state: started
+
+  - name: Build MQTT broker image
+    docker_image:
+      path: "{{base_path}}"
+      name: mqtt-broker2
+      tag: latest
+      dockerfile: Dockerfile
+      state: present
+
+  - name: Run MQTT container from built image
+    command: "docker run -dit --name MQTT_with_TLS -p 0.0.0.0:8883:8883 --mount type=bind,source={{base_path}}/mosquitto.conf,target=/etc/mosquitto/mosquitto.conf --mount type=bind,source={{base_path}}/certs/,target=/etc/mosquitto/certs/ mqtt-broker2:latest"
